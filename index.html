@@ -49,6 +49,21 @@
             width: 36px; height: 36px; transform-origin: center;
             transition: transform 0.1s linear; filter: drop-shadow(0px 3px 3px rgba(0,0,0,0.8));
         }
+        
+        /* Estilo para a etiqueta Você Está Aqui */
+        .voce-esta-aqui-label {
+            background: white; 
+            padding: 6px 12px; 
+            border-radius: 20px; 
+            border: 2px solid #333; 
+            font-weight: bold; 
+            font-size: 12px; 
+            color: #333; 
+            box-shadow: 0 4px 8px rgba(0,0,0,0.4); 
+            white-space: nowrap; 
+            transform: translate(-50%, -100%);
+            display: inline-block;
+        }
 
         @media (max-width: 768px) {
             #painel {
@@ -94,7 +109,6 @@
         window.onload = function() {
             const centroMapa = [-23.4227124, -46.8017848];
             
-            // Margem de bloqueio expandida para evitar o erro do ecrã cinzento em monitores grandes e telemóveis
             const limites = L.latLngBounds(
                 [centroMapa[0] - 0.02, centroMapa[1] - 0.02],
                 [centroMapa[0] + 0.02, centroMapa[1] + 0.02]
@@ -104,7 +118,7 @@
                 zoomControl: false,
                 maxBounds: limites,
                 maxBoundsViscosity: 1.0,
-                minZoom: 15 // Reduzido de 16 para 15 para garantir estabilidade do viewport
+                minZoom: 15 
             }).setView(centroMapa, 17);
 
             L.control.zoom({ position: 'topright' }).addTo(map);
@@ -113,6 +127,16 @@
                 attribution: '© Google Maps',
                 maxNativeZoom: 20, maxZoom: 22
             }).addTo(map);
+
+            // Adicionar Ícone Fixo de "Você está aqui" na entrada (Portaria)
+            const iconeVoceEstaAqui = L.divIcon({
+                className: 'voce-esta-aqui',
+                html: `<div class="voce-esta-aqui-label">📍 Você está aqui</div>`,
+                iconSize: [0, 0] // Tamanho 0 para que o CSS cuide de centralizar na coordenada exata
+            });
+            
+            // Coordenada da entrada principal, partilhada por todas as rotas
+            L.marker([-23.4199530, -46.7990139], { icon: iconeVoceEstaAqui }).addTo(map);
 
             const rotas = {
                 vermelha: { color: '#FF0000', points: [ 
