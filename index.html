@@ -136,62 +136,62 @@
             let idAnimacao = null;
 
             window.iniciarAnimacao = function(corRota) {
-                if (idAnimacao) cancelAnimationFrame(idAnimacao);
-                
-                const pontosOriginais = rotas[corRota].points;
-                const linhaTurf = turf.lineString(pontosOriginais.map(p => [p[1], p[0]]));
-                const comprimentoTotal = turf.length(linhaTurf, { units: 'meters' });
-                
-                if (!marcadorGPS) {
-                    marcadorGPS = L.marker(pontosOriginais[0], { icon: gpsIcon, zIndexOffset: 1000 }).addTo(map);
-                } else {
-                    marcadorGPS.setLatLng(pontosOriginais[0]);
-                }
+    if (idAnimacao) cancelAnimationFrame(idAnimacao);
+    
+    const pontosOriginais = rotas[corRota].points;
+    const linhaTurf = turf.lineString(pontosOriginais.map(p => [p[1], p[0]]));
+    const comprimentoTotal = turf.length(linhaTurf, { units: 'meters' });
+    
+    if (!marcadorGPS) {
+        marcadorGPS = L.marker(pontosOriginais[0], { icon: gpsIcon, zIndexOffset: 1000 }).addTo(map);
+    } else {
+        marcadorGPS.setLatLng(pontosOriginais[0]);
+    }
 
-                const elementoSeta = document.getElementById('gps-arrow');
-                if(elementoSeta) {
-                    elementoSeta.innerHTML = svgIcon.replace('#0078FF', rotas[corRota].color);
-                }
+    const elementoSeta = document.getElementById('gps-arrow');
+    if(elementoSeta) {
+        elementoSeta.innerHTML = svgIcon.replace('#0078FF', rotas[corRota].color);
+    }
 
-                let distanciaAtual = 0;
-                // Velocidade reduzida para um deslocamento mais suave
-                const velocidadeMetrosPorFrame = 0.5; 
-                
-                let rotacaoAtual = 0;
-                let primeiroFrame = true;
+    let distanciaAtual = 0;
+    const velocidadeMetrosPorFrame = 0.3; 
+    
+    let rotacaoAtual = 0;
+    let primeiroFrame = true;
 
-                function atualizarFrame() {
-                    if (distanciaAtual < comprimentoTotal) {
-                        const pontoAtual = turf.along(linhaTurf, distanciaAtual, { units: 'meters' });
-                        const proximoPonto = turf.along(linhaTurf, Math.min(distanciaAtual + velocidadeMetrosPorFrame, comprimentoTotal), { units: 'meters' });
-                        const coordAtual = pontoAtual.geometry.coordinates; 
-                        
-                        marcadorGPS.setLatLng([coordAtual[1], coordAtual[0]]);
-                        
-                        const rotacaoAlvo = turf.bearing(pontoAtual, proximoPonto);
-                        
-                        if (primeiroFrame) {
-                            rotacaoAtual = rotacaoAlvo;
-                            primeiroFrame = false;
-                        } else {
-                            let diferenca = rotacaoAlvo - (rotacaoAtual % 360);
-                            if (diferenca > 180) diferenca -= 360;
-                            else if (diferenca < -180) diferenca += 360;
-                            rotacaoAtual += diferenca;
-                        }
+    function atualizarFrame() {
+        if (distanciaAtual < comprimentoTotal) {
+            const pontoAtual = turf.along(linhaTurf, distanciaAtual, { units: 'meters' });
+            const proximoPonto = turf.along(linhaTurf, Math.min(distanciaAtual + velocidadeMetrosPorFrame, comprimentoTotal), { units: 'meters' });
+            const coordAtual = pontoAtual.geometry.coordinates; 
+            
+            marcadorGPS.setLatLng([coordAtual[1], coordAtual[0]]);
+            
+            const rotacaoAlvo = turf.bearing(pontoAtual, proximoPonto);
+            
+            if (primeiroFrame) {
+                rotacaoAtual = rotacaoAlvo;
+                primeiroFrame = false;
+            } else {
+                let diferenca = rotacaoAlvo - (rotacaoAtual % 360);
+                if (diferenca > 180) diferenca -= 360;
+                else if (diferenca < -180) diferenca += 360;
+                rotacaoAtual += diferenca;
+            }
 
-                        if (elementoSeta) {
-                            elementoSeta.style.transform = `rotate(${rotacaoAtual}deg)`;
-                        }
-                        
-                        map.panTo([coordAtual[1], coordAtual[0]], { animate: true, duration: 0.1 });
+            if (elementoSeta) {
+                elementoSeta.style.transform = `rotate(${rotacaoAtual}deg)`;
+            }
+            
+            // CORREÇÃO: animate: false elimina os engasgos da câmera
+            map.panTo([coordAtual[1], coordAtual[0]], { animate: false });
 
-                        distanciaAtual += velocidadeMetrosPorFrame;
-                        idAnimacao = requestAnimationFrame(atualizarFrame);
-                    }
-                }
-                atualizarFrame();
-            };
+            distanciaAtual += velocidadeMetrosPorFrame;
+            idAnimacao = requestAnimationFrame(atualizarFrame);
+        }
+    }
+    atualizarFrame();
+};
         };
     </script>
 </body>
