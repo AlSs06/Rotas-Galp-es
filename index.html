@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Rotas Galpões - Dashboard</title>
     
     <!-- CSS do Leaflet -->
@@ -12,16 +12,33 @@
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; font-family: sans-serif; overflow: hidden; }
         #map { position: absolute; top: 0; bottom: 0; width: 100%; background-color: #222; }
         
+        /* Layout para Computador (Painel à Esquerda) */
         #painel {
-            position: absolute; top: 20px; right: 20px; z-index: 1000;
-            background: rgba(255, 255, 255, 0.95); padding: 15px; border-radius: 8px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3); width: 160px;
+            position: absolute; 
+            top: 20px; 
+            left: 20px; 
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.95); 
+            padding: 15px; 
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3); 
+            width: 160px;
+            box-sizing: border-box;
         }
         
         .btn-rota {
-            display: block; width: 100%; margin-bottom: 8px; padding: 10px;
-            border: none; border-radius: 4px; color: white; font-weight: bold;
-            cursor: pointer; text-align: center; transition: opacity 0.2s;
+            display: block; 
+            width: 100%; 
+            margin-bottom: 8px; 
+            padding: 10px;
+            border: none; 
+            border-radius: 4px; 
+            color: white; 
+            font-weight: bold;
+            cursor: pointer; 
+            text-align: center; 
+            transition: opacity 0.2s;
+            box-sizing: border-box;
         }
         .btn-rota:hover { opacity: 0.8; }
         #btn-vermelha { background-color: #FF0000; }
@@ -33,6 +50,31 @@
         #gps-arrow {
             width: 36px; height: 36px; transform-origin: center;
             transition: transform 0.1s linear; filter: drop-shadow(0px 3px 3px rgba(0,0,0,0.8));
+        }
+
+        /* Layout Responsivo para Telemóvel */
+        @media (max-width: 768px) {
+            #painel {
+                top: auto; 
+                bottom: 25px; 
+                left: 50%; 
+                transform: translateX(-50%);
+                width: 92%; 
+                max-width: 400px;
+                padding: 12px;
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 8px;
+            }
+            #painel h3 { 
+                grid-column: span 2; 
+                margin-bottom: 5px; 
+            }
+            .btn-rota { 
+                margin-bottom: 0; 
+                padding: 12px; /* Botões mais altos para toque de dedo */
+                font-size: 14px;
+            }
         }
     </style>
 </head>
@@ -67,7 +109,8 @@
                 minZoom: 16
             }).setView(centroMapa, 17);
 
-            L.control.zoom({ position: 'bottomright' }).addTo(map);
+            // Zoom movido para o topo para não chocar com o painel no telemóvel
+            L.control.zoom({ position: 'topright' }).addTo(map);
 
             L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
                 attribution: '© Google Maps',
@@ -129,86 +172,4 @@
                 L.polyline(rotas[chave].points, { color: rotas[chave].color, weight: 4, opacity: 1, lineJoin: 'round' }).addTo(map);
             }
 
-            const svgIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#0078FF" stroke="white" stroke-width="1.5"><path d="M12 2L2 22l10-4 10 4L12 2z"/></svg>`;
-            const gpsIcon = L.divIcon({ className: 'gps-marker', html: `<div id="gps-arrow">${svgIcon}</div>`, iconSize: [36, 36], iconAnchor: [18, 18] });
-            
-            let marcadorGPS = null;
-            let idAnimacao = null;
-
-            window.iniciarAnimacao = function(corRota) {
-    if (idAnimacao) cancelAnimationFrame(idAnimacao);
-    
-    const pontosOriginais = rotas[corRota].points;
-    const linhaTurf = turf.lineString(pontosOriginais.map(p => [p[1], p[0]]));
-    const comprimentoTotal = turf.length(linhaTurf, { units: 'meters' });
-    
-    if (!marcadorGPS) {
-        marcadorGPS = L.marker(pontosOriginais[0], { icon: gpsIcon, zIndexOffset: 1000 }).addTo(map);
-    } else {
-        marcadorGPS.setLatLng(pontosOriginais[0]);
-    }
-
-    const elementoSeta = document.getElementById('gps-arrow');
-    if(elementoSeta) {
-        elementoSeta.innerHTML = svgIcon.replace('#0078FF', rotas[corRota].color);
-    }
-
-    let distanciaAtual = 0;
-    const velocidadeMetrosPorFrame = 1.2; 
-    
-    let rotacaoAtual = 0;
-    let primeiroFrame = true;
-    
-    // Variável para controlar a taxa de atualização da câmara
-    let ultimoTempoPan = 0; 
-
-    // Adicionado parâmetro de tempo fornecido pelo requestAnimationFrame
-    function atualizarFrame(tempoAtual) {
-        if (!tempoAtual) tempoAtual = performance.now();
-
-        if (distanciaAtual < comprimentoTotal) {
-            const pontoAtual = turf.along(linhaTurf, distanciaAtual, { units: 'meters' });
-            const proximoPonto = turf.along(linhaTurf, Math.min(distanciaAtual + velocidadeMetrosPorFrame, comprimentoTotal), { units: 'meters' });
-            const coordAtual = pontoAtual.geometry.coordinates; 
-            
-            // 1. Atualiza a Seta a 60fps (Movimento super suave)
-            marcadorGPS.setLatLng([coordAtual[1], coordAtual[0]]);
-            
-            const rotacaoAlvo = turf.bearing(pontoAtual, proximoPonto);
-            
-            if (primeiroFrame) {
-                rotacaoAtual = rotacaoAlvo;
-                primeiroFrame = false;
-            } else {
-                let diferenca = rotacaoAlvo - (rotacaoAtual % 360);
-                if (diferenca > 180) diferenca -= 360;
-                else if (diferenca < -180) diferenca += 360;
-                rotacaoAtual += diferenca;
-            }
-
-            if (elementoSeta) {
-                elementoSeta.style.transform = `rotate(${rotacaoAtual}deg)`;
-            }
-            
-            // 2. Atualiza a Câmara apenas a cada 150ms para evitar travamentos do navegador
-            if (tempoAtual - ultimoTempoPan > 150) {
-                map.panTo([coordAtual[1], coordAtual[0]], { 
-                    animate: true, 
-                    duration: 0.15, // Duração igual ao intervalo para movimento contínuo
-                    easeLinearity: 1 
-                });
-                ultimoTempoPan = tempoAtual;
-            }
-
-            distanciaAtual += velocidadeMetrosPorFrame;
-            idAnimacao = requestAnimationFrame(atualizarFrame);
-        }
-    }
-    
-    // Inicia o ciclo passando o tempo inicial
-    atualizarFrame(performance.now());
-};
-        };
-    </script>
-</body>
-</html>
+            const svgIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#0078FF" stroke="white" stroke-width="1.5"><path d="M12 2L2 22l10-4 10 4L12 2z"/></svg
