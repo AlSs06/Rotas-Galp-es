@@ -55,4 +55,326 @@
             cursor: pointer;
             padding: 0 10px;
             font-size: 16px;
-            transition:
+            transition: background-color 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .btn-foto:hover { background-color: #ddd; }
+
+        .gps-marker { background: transparent; border: none; }
+        #gps-arrow {
+            width: 36px; height: 36px; transform-origin: center;
+            transition: transform 0.1s linear; filter: drop-shadow(0px 3px 3px rgba(0,0,0,0.8));
+        }
+        
+        .voce-esta-aqui-label {
+            background: white; 
+            padding: 6px 12px; 
+            border-radius: 20px; 
+            border: 2px solid #333; 
+            font-weight: bold; 
+            font-size: 12px; 
+            color: #333; 
+            box-shadow: 0 4px 8px rgba(0,0,0,0.4); 
+            white-space: nowrap; 
+            transform: translate(-50%, -100%);
+            display: inline-block;
+        }
+
+        #modal-chegada {
+            display: none; 
+            position: fixed; z-index: 2000; left: 0; top: 0;
+            width: 100%; height: 100%;
+            background-color: rgba(0,0,0,0.75);
+            justify-content: center; align-items: center;
+            backdrop-filter: blur(3px);
+        }
+        .modal-content {
+            background-color: #fff; padding: 25px;
+            border-radius: 12px; width: 85%; max-width: 400px;
+            text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            position: relative; animation: popUp 0.3s ease-out;
+        }
+        @keyframes popUp {
+            from { transform: scale(0.8); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+        .fechar-modal {
+            background: #333; color: white; border: none;
+            padding: 10px 20px; border-radius: 6px; margin-top: 15px;
+            font-weight: bold; font-size: 16px; cursor: pointer; width: 100%;
+        }
+        .fechar-modal:hover { background: #555; }
+        #modal-imagem {
+            width: 100%; height: 200px; object-fit: cover;
+            border-radius: 8px; margin: 15px 0; border: 1px solid #ccc;
+        }
+        #modal-titulo { margin: 0; color: #333; font-size: 22px;}
+        #modal-desc { margin: 0; font-size: 14px; color: #666; }
+
+        @media (max-width: 768px) {
+            #painel {
+                top: auto; 
+                bottom: 25px; 
+                left: 50%; 
+                transform: translateX(-50%);
+                width: 96%; 
+                max-width: 400px;
+                padding: 12px;
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 8px;
+            }
+            #painel h3 { grid-column: span 2; margin-bottom: 5px; }
+            .rota-row { margin-bottom: 0; }
+            .btn-rota { padding: 12px; font-size: 14px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="modal-chegada">
+        <div class="modal-content">
+            <h3 id="modal-titulo">Destino Alcançado</h3>
+            <p id="modal-desc">Confirme se a fachada corresponde a esta imagem:</p>
+            <img id="modal-imagem" src="" alt="Fachada do Galpão">
+            <button class="fechar-modal" onclick="fecharModal()">Confirmar Chegada</button>
+        </div>
+    </div>
+
+    <div id="painel">
+        <h3 style="margin-top:0; font-size: 14px; text-align: center;">Selecione o seu destino</h3>
+        
+        <div class="rota-row">
+            <button class="btn-rota" id="btn-azul" onclick="iniciarAnimacao('azul')">G1</button>
+            <button class="btn-foto" onclick="mostrarDestinoDireto('azul')" title="Ver apenas a foto">📷</button>
+        </div>
+        <div class="rota-row">
+            <button class="btn-rota" id="btn-amarela" onclick="iniciarAnimacao('amarela')">G2</button>
+            <button class="btn-foto" onclick="mostrarDestinoDireto('amarela')" title="Ver apenas a foto">📷</button>
+        </div>
+        <div class="rota-row">
+            <button class="btn-rota" id="btn-verde" onclick="iniciarAnimacao('verde')">G3</button>
+            <button class="btn-foto" onclick="mostrarDestinoDireto('verde')" title="Ver apenas a foto">📷</button>
+        </div>
+        <div class="rota-row">
+            <button class="btn-rota" id="btn-vermelha" onclick="iniciarAnimacao('vermelha')">G3A</button>
+            <button class="btn-foto" onclick="mostrarDestinoDireto('vermelha')" title="Ver apenas a foto">📷</button>
+        </div>
+    </div>
+
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Turf.js/6.5.0/turf.min.js"></script>
+
+    <script>
+        window.fecharModal = function() {
+            document.getElementById('modal-chegada').style.display = 'none';
+        }
+
+        window.onload = function() {
+            const centroMapa = [-23.4227124, -46.8017848];
+            
+            const limites = L.latLngBounds(
+                [centroMapa[0] - 0.02, centroMapa[1] - 0.02],
+                [centroMapa[0] + 0.02, centroMapa[1] + 0.02]
+            );
+
+            const map = L.map('map', {
+                zoomControl: false,
+                maxBounds: limites,
+                maxBoundsViscosity: 1.0,
+                minZoom: 15 
+            }).setView(centroMapa, 17);
+
+            L.control.zoom({ position: 'topright' }).addTo(map);
+
+            L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+                attribution: '© Google Maps',
+                maxNativeZoom: 20, maxZoom: 22
+            }).addTo(map);
+
+            const iconeVoceEstaAqui = L.divIcon({
+                className: 'voce-esta-aqui',
+                html: `<div class="voce-esta-aqui-label">📍 Você está aqui</div>`,
+                iconSize: [0, 0] 
+            });
+            
+            L.marker([-23.4199530, -46.7990139], { icon: iconeVoceEstaAqui }).addTo(map);
+
+            const rotas = {
+                vermelha: { 
+                    color: '#FF0000', nome: 'G3A', imagem: './imagens/g3a.jpg',
+                    points: [ 
+                        [-23.4199530, -46.7990139], [-23.4201155, -46.7991480], [-23.4202066, -46.7991722], [-23.4203248, -46.7991722],
+                        [-23.4204529, -46.7991212], [-23.4205735, -46.7990997], [-23.4207779, -46.7990917], [-23.4215235, -46.7990837],
+                        [-23.4222961, -46.7990729], [-23.4224106, -46.7990769], [-23.4225571, -46.7990971], [-23.4226729, -46.7991199],
+                        [-23.4228068, -46.7991641], [-23.4230309, -46.7992795], [-23.4232870, -46.7994457], [-23.4238238, -46.7997844],
+                        [-23.4239334, -46.7998997], [-23.4239765, -46.7999762], [-23.4240191, -46.8000989], [-23.4240351, -46.8002611],
+                        [-23.4240142, -46.8004663], [-23.4239748, -46.8006366], [-23.4238714, -46.8008351], [-23.4236009, -46.8013018],
+                        [-23.4232143, -46.8019831], [-23.4228449, -46.8026564], [-23.4223772, -46.8035200], [-23.4220782, -46.8040551],
+                        [-23.4220388, -46.8041463], [-23.4220277, -46.8042322], [-23.4220277, -46.8043180], [-23.4220609, -46.8043850],
+                        [-23.4221126, -46.8044454], [-23.4222949, -46.8045540], [-23.4225163, -46.8046519], [-23.4226604, -46.8047042],
+                        [-23.4228118, -46.8047096], [-23.4229384, -46.8046895], [-23.4230209, -46.8046828], [-23.4231416, -46.8047056],
+                        [-23.4233029, -46.8047632], [-23.4234700, -46.8048142], [-23.4235821, -46.8048370], [-23.4236719, -46.8048517],
+                        [-23.4237963, -46.8048437], [-23.4238677, -46.8048356], [-23.4239317, -46.8048464], [-23.4240204, -46.8049081],
+                        [-23.4241630, -46.8049979], [-23.4242393, -46.8050207], [-23.4243083, -46.8050140], [-23.4243846, -46.8049966],
+                        [-23.4244425, -46.8049295], [-23.4245531, -46.8047270], [-23.4246344, -46.8046466], [-23.4247698, -46.8043998],
+                        [-23.4249028, -46.8041477], [-23.4249456, -46.8040538], [-23.4249370, -46.8039881], [-23.4248976, -46.8039250],
+                        [-23.4248373, -46.8038727], [-23.4247019, -46.8037762], [-23.4245824, -46.8036903], [-23.4245320, -46.8036206],
+                        [-23.4245086, -46.8035509], [-23.4245073, -46.8034463], [-23.4245110, -46.8033591], [-23.4245541, -46.8032357],
+                        [-23.4246502, -46.8030815]
+                    ] 
+                },
+                verde: { 
+                    color: '#00FF00', nome: 'G3', imagem: './imagens/g3.jpg',
+                    points: [ 
+                        [-23.4199875, -46.7989817], [-23.4200491, -46.7990354], [-23.4201131, -46.7990783], [-23.4201648, -46.7991158],
+                        [-23.4202411, -46.7991427], [-23.4203421, -46.7991266], [-23.4204406, -46.7990783], [-23.4205810, -46.7990622],
+                        [-23.4207853, -46.7990461], [-23.4209996, -46.7990434], [-23.4220045, -46.7990340], [-23.4221657, -46.7990287],
+                        [-23.4223662, -46.7990260], [-23.4224426, -46.7990354], [-23.4225571, -46.7990501], [-23.4226740, -46.7990716],
+                        [-23.4227824, -46.7991091], [-23.4229595, -46.7991950], [-23.4230592, -46.7992459], [-23.4231602, -46.7993103],
+                        [-23.4233816, -46.7994551], [-23.4234949, -46.7995262], [-23.4237385, -46.7996751], [-23.4238111, -46.7997260],
+                        [-23.4239256, -46.7998052], [-23.4240180, -46.7999232], [-23.4240487, -46.7999929], [-23.4240905, -46.8001673],
+                        [-23.4240979, -46.8003014], [-23.4240708, -46.8004382], [-23.4240413, -46.8005629], [-23.4239798, -46.8007198],
+                        [-23.4238923, -46.8008821], [-23.4237877, -46.8010698], [-23.4236904, -46.8012562], [-23.4236104, -46.8013957],
+                        [-23.4233986, -46.8017773], [-23.4233352, -46.8018678], [-23.4232417, -46.8020482], [-23.4231599, -46.8022044],
+                        [-23.4231303, -46.8022889], [-23.4231316, -46.8023533], [-23.4231488, -46.8024337], [-23.4231858, -46.8024874],
+                        [-23.4232645, -46.8025517], [-23.4233507, -46.8026175], [-23.4234899, -46.8027020], [-23.4236301, -46.8027905],
+                        [-23.4237557, -46.8028669], [-23.4239059, -46.8029621], [-23.4240498, -46.8030480], [-23.4241311, -46.8030976],
+                        [-23.4242013, -46.8031110], [-23.4242850, -46.8030748], [-23.4243231, -46.8030104], [-23.4244282, -46.8028012],
+                        [-23.4245587, -46.8025222]
+                    ] 
+                },
+                azul: { 
+                    color: '#0078FF', nome: 'G1', imagem: './imagens/g1.jpg',
+                    points: [ 
+                        [-23.4199332, -46.7990381], [-23.4199997, -46.7990971], [-23.4200613, -46.7991588], [-23.4201327, -46.7992043],
+                        [-23.4202263, -46.7992285], [-23.4203346, -46.7992955], [-23.4203937, -46.7993653], [-23.4205095, -46.7994350]
+                    ] 
+                },
+                amarela: { 
+                    color: '#FFD700', nome: 'G2', imagem: './imagens/g2.jpg',
+                    points: [ 
+                        [-23.4199160, -46.7990528], [-23.4199665, -46.7991185], [-23.4200108, -46.7991614], [-23.4200773, -46.7992124],
+                        [-23.4201450, -46.7992499], [-23.4202238, -46.7992714], [-23.4202805, -46.7992942], [-23.4203014, -46.7993304],
+                        [-23.4203076, -46.7993733], [-23.4202768, -46.7994672], [-23.4201918, -46.7996295], [-23.4200761, -46.7998682],
+                        [-23.4199370, -46.8001364]
+                    ] 
+                }
+            };
+
+            for (const chave in rotas) {
+                L.polyline(rotas[chave].points, { color: rotas[chave].color, weight: 10, opacity: 0.3, lineJoin: 'round' }).addTo(map);
+                L.polyline(rotas[chave].points, { color: rotas[chave].color, weight: 4, opacity: 1, lineJoin: 'round' }).addTo(map);
+            }
+
+            const svgIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#0078FF" stroke="white" stroke-width="1.5"><path d="M12 2L2 22l10-4 10 4L12 2z"/></svg>`;
+            const gpsIcon = L.divIcon({ className: 'gps-marker', html: `<div id="gps-arrow">${svgIcon}</div>`, iconSize: [36, 36], iconAnchor: [18, 18] });
+            
+            let marcadorGPS = null;
+            let idAnimacao = null;
+
+            window.mostrarDestinoDireto = function(corRota) {
+                if (idAnimacao) cancelAnimationFrame(idAnimacao);
+                
+                const rotaSelecionada = rotas[corRota];
+                const pontoFinal = rotaSelecionada.points[rotaSelecionada.points.length - 1];
+
+                if (!marcadorGPS) {
+                    marcadorGPS = L.marker(pontoFinal, { icon: gpsIcon, zIndexOffset: 1000 }).addTo(map);
+                } else {
+                    marcadorGPS.setLatLng(pontoFinal);
+                }
+
+                const elementoSeta = document.getElementById('gps-arrow');
+                if(elementoSeta) {
+                    elementoSeta.innerHTML = svgIcon.replace('#0078FF', rotaSelecionada.color);
+                    elementoSeta.style.transform = `rotate(0deg)`;
+                }
+
+                map.panTo(pontoFinal, { animate: true, duration: 1.5 });
+
+                document.getElementById('modal-titulo').innerText = "Destino: " + rotaSelecionada.nome;
+                document.getElementById('modal-imagem').src = rotaSelecionada.imagem;
+                document.getElementById('modal-chegada').style.display = 'flex';
+            };
+
+            window.iniciarAnimacao = function(corRota) {
+                if (idAnimacao) cancelAnimationFrame(idAnimacao);
+                
+                const rotaSelecionada = rotas[corRota];
+                const pontosOriginais = rotaSelecionada.points;
+                const linhaTurf = turf.lineString(pontosOriginais.map(p => [p[1], p[0]]));
+                const comprimentoTotal = turf.length(linhaTurf, { units: 'meters' });
+                
+                if (!marcadorGPS) {
+                    marcadorGPS = L.marker(pontosOriginais[0], { icon: gpsIcon, zIndexOffset: 1000 }).addTo(map);
+                } else {
+                    marcadorGPS.setLatLng(pontosOriginais[0]);
+                }
+
+                const elementoSeta = document.getElementById('gps-arrow');
+                if(elementoSeta) {
+                    elementoSeta.innerHTML = svgIcon.replace('#0078FF', rotaSelecionada.color);
+                }
+
+                let distanciaAtual = 0;
+                const velocidadeMetrosPorFrame = 0.3; 
+                
+                let rotacaoAtual = 0;
+                let primeiroFrame = true;
+                let ultimoTempoPan = 0; 
+
+                function atualizarFrame(tempoAtual) {
+                    if (!tempoAtual) tempoAtual = performance.now();
+
+                    if (distanciaAtual < comprimentoTotal) {
+                        const pontoAtual = turf.along(linhaTurf, distanciaAtual, { units: 'meters' });
+                        const proximoPonto = turf.along(linhaTurf, Math.min(distanciaAtual + velocidadeMetrosPorFrame, comprimentoTotal), { units: 'meters' });
+                        const coordAtual = pontoAtual.geometry.coordinates; 
+                        
+                        marcadorGPS.setLatLng([coordAtual[1], coordAtual[0]]);
+                        
+                        const rotacaoAlvo = turf.bearing(pontoAtual, proximoPonto);
+                        
+                        if (primeiroFrame) {
+                            rotacaoAtual = rotacaoAlvo;
+                            primeiroFrame = false;
+                        } else {
+                            let diferenca = rotacaoAlvo - (rotacaoAtual % 360);
+                            if (diferenca > 180) diferenca -= 360;
+                            else if (diferenca < -180) diferenca += 360;
+                            rotacaoAtual += diferenca;
+                        }
+
+                        if (elementoSeta) {
+                            elementoSeta.style.transform = `rotate(${rotacaoAtual}deg)`;
+                        }
+                        
+                        if (tempoAtual - ultimoTempoPan > 150) {
+                            map.panTo([coordAtual[1], coordAtual[0]], { 
+                                animate: true, 
+                                duration: 0.15, 
+                                easeLinearity: 1 
+                            });
+                            ultimoTempoPan = tempoAtual;
+                        }
+
+                        distanciaAtual += velocidadeMetrosPorFrame;
+                        idAnimacao = requestAnimationFrame(atualizarFrame);
+                        
+                    } else {
+                        document.getElementById('modal-titulo').innerText = "Destino Alcançado: " + rotaSelecionada.nome;
+                        document.getElementById('modal-imagem').src = rotaSelecionada.imagem;
+                        document.getElementById('modal-chegada').style.display = 'flex';
+                    }
+                }
+                atualizarFrame(performance.now());
+            };
+        };
+    </script>
+</body>
+</html>
