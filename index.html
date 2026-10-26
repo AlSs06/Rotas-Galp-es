@@ -158,13 +158,20 @@
     
     let rotacaoAtual = 0;
     let primeiroFrame = true;
+    
+    // Variável para controlar a taxa de atualização da câmara
+    let ultimoTempoPan = 0; 
 
-    function atualizarFrame() {
+    // Adicionado parâmetro de tempo fornecido pelo requestAnimationFrame
+    function atualizarFrame(tempoAtual) {
+        if (!tempoAtual) tempoAtual = performance.now();
+
         if (distanciaAtual < comprimentoTotal) {
             const pontoAtual = turf.along(linhaTurf, distanciaAtual, { units: 'meters' });
             const proximoPonto = turf.along(linhaTurf, Math.min(distanciaAtual + velocidadeMetrosPorFrame, comprimentoTotal), { units: 'meters' });
             const coordAtual = pontoAtual.geometry.coordinates; 
             
+            // 1. Atualiza a Seta a 60fps (Movimento super suave)
             marcadorGPS.setLatLng([coordAtual[1], coordAtual[0]]);
             
             const rotacaoAlvo = turf.bearing(pontoAtual, proximoPonto);
@@ -183,14 +190,23 @@
                 elementoSeta.style.transform = `rotate(${rotacaoAtual}deg)`;
             }
             
-            // CORREÇÃO: animate: false elimina os engasgos da câmera
-            map.panTo([coordAtual[1], coordAtual[0]], { animate: false });
+            // 2. Atualiza a Câmara apenas a cada 150ms para evitar travamentos do navegador
+            if (tempoAtual - ultimoTempoPan > 150) {
+                map.panTo([coordAtual[1], coordAtual[0]], { 
+                    animate: true, 
+                    duration: 0.15, // Duração igual ao intervalo para movimento contínuo
+                    easeLinearity: 1 
+                });
+                ultimoTempoPan = tempoAtual;
+            }
 
             distanciaAtual += velocidadeMetrosPorFrame;
             idAnimacao = requestAnimationFrame(atualizarFrame);
         }
     }
-    atualizarFrame();
+    
+    // Inicia o ciclo passando o tempo inicial
+    atualizarFrame(performance.now());
 };
         };
     </script>
